@@ -6,6 +6,11 @@ import cosm
 import time
 import daemon
 import optparse
+import logging
+import sys
+from logging.handlers import SysLogHandler
+
+logger = logging.getLogger("cosmd")
 
 COSMCONFIG="/etc/cosm.conf"
 
@@ -20,23 +25,26 @@ class Feed:
 
     def sendUpdates(self):
         self.cosm.buildUpdate()
+        logger.debug(self.cosm._payload)
         self.cosm.sendUpdate()
 
 def main(period, feeds):
     while True:
         start = time.time()
         for feed in feeds:
+            logger.debug("updating %s" % feed)
             try:
                 feeds[feed].getUpdates()
                 feeds[feed].sendUpdates()
             except Exception, e:
-                print "feed %s %s" % (feed, e)
+                logger.warn("feed %s %s" % (feed, e))
         end = time.time()
         #if it takes us longer that 30s, just GO!
         if end - start > period:
-            pass
+            logger.warn("Fell behind %s seconds" % ((end - start) - period))
         #sleep to make it ~30s interval
         else:
+            logger.debug("sleeping %s" % (period - (end - start)))
             time.sleep(period - (end - start))
 
 
@@ -49,8 +57,28 @@ if __name__ == "__main__":
       parser.add_option("-d", "--deamon", dest="daemon",
                         action="store_true",
                         help="dont run as a daemon")
+      parser.add_option("-v", "--verbose", dest="verbose",
+                        action="store_true",
+                        help="increase logging")
       (options, args) = parser.parse_args()
       
+      handler = None
+      if not options.daemon:
+          handler = SysLogHandler(address='/dev/log')
+          formatter = logging.Formatter('%(name)s: %(levelname)s %(message)s')
+          handler.setFormatter(formatter)
+      else:
+          handler = logging.StreamHandler()
+
+      if options.verbose:
+          handler.setLevel(logging.DEBUG)
+          logger.setLevel(logging.DEBUG)
+      else:
+          handler.setLevel(logging.WARN)
+          logger.setLevel(logging.WARN)
+
+      logger.addHandler(handler)
+
       config = json.load(open(options.config))
 
       period = int(config["period"])
@@ -65,7 +93,9 @@ if __name__ == "__main__":
           feeds[feed] = Feed(feed, feed_config["key"], modules)
 
       if not options.daemon:
+          logger.debug("Daemonizing")
           with daemon.DaemonContext():
               main(period, feeds)
       else:
+          logger.debug("Staying in Foreground")
           main(period, feeds)
