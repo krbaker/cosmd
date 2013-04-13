@@ -1,0 +1,4 @@
+cosmd
+=====
+
+Cosm Publishing Daemon
