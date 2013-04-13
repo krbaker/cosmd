@@ -19,6 +19,9 @@ class Feed:
         self.cosm = cosm.Cosm(feed_id, feed_key)
         self.modules = modules
 
+    def clearData(self):
+        self.cosm.clearData()
+
     def getUpdates(self):
         for module in self.modules:
             self.modules[module].update(self.cosm)
@@ -34,6 +37,7 @@ def main(period, feeds):
         for feed in feeds:
             logger.debug("updating %s" % feed)
             try:
+                feeds[feed].clearData()
                 feeds[feed].getUpdates()
                 feeds[feed].sendUpdates()
             except Exception, e:

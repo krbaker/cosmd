@@ -30,8 +30,10 @@ class Cosm:
     self._payload['version'] = self._version
     self._payload['id'] = self._feed_id
     self._payload['datastreams'] = self._data
- 
+
+  def clearData(self):
+    self._data = [] 
+
   def sendUpdate(self):
     url = self._url_base + self._feed_id + "?_method=put"
     self._opener.open(url,json.dumps(self._payload)).read()
-    self._data = []
