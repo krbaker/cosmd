@@ -1,0 +1,71 @@
+#!/usr/bin/python
+#Simple script to push ted data to cosm
+# $Id: 09d143cb24aaea6ab5d76cd9ef24daca59777250 $
+import json
+import cosm
+import time
+import daemon
+import optparse
+
+COSMCONFIG="/etc/cosm.conf"
+
+class Feed:
+    def __init__(self, feed_id, feed_key, modules):
+        self.cosm = cosm.Cosm(feed_id, feed_key)
+        self.modules = modules
+
+    def getUpdates(self):
+        for module in self.modules:
+            self.modules[module].update(self.cosm)
+
+    def sendUpdates(self):
+        self.cosm.buildUpdate()
+        self.cosm.sendUpdate()
+
+def main(period, feeds):
+    while True:
+        start = time.time()
+        for feed in feeds:
+            try:
+                feeds[feed].getUpdates()
+                feeds[feed].sendUpdates()
+            except Exception, e:
+                print "feed %s %s" % (feed, e)
+        end = time.time()
+        #if it takes us longer that 30s, just GO!
+        if end - start > period:
+            pass
+        #sleep to make it ~30s interval
+        else:
+            time.sleep(period - (end - start))
+
+
+
+if __name__ == "__main__":
+      parser = optparse.OptionParser()
+      parser.add_option("-c", "--config", dest="config",
+                        default=COSMCONFIG,
+                        help="use config file instead of %default")
+      parser.add_option("-d", "--deamon", dest="daemon",
+                        action="store_true",
+                        help="dont run as a daemon")
+      (options, args) = parser.parse_args()
+      
+      config = json.load(open(options.config))
+
+      period = int(config["period"])
+
+      feeds = {}
+      for feed in config["feeds"]:
+          feed_config = config["feeds"][feed]
+          modules = {}
+          for module in feed_config["modules"]:
+              mod = __import__("cosm.%s" % module, fromlist = ["cosm.%s" % module])
+              modules[module] = mod.DataSource(feed_config["modules"][module])
+          feeds[feed] = Feed(feed, feed_config["key"], modules)
+
+      if not options.daemon:
+          with daemon.DaemonContext():
+              main(period, feeds)
+      else:
+          main(period, feeds)
