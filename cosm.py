@@ -1,9 +1,8 @@
 #!/usr/bin/python
 # based on http://www.netfluvia.org/layer8/?p=175
  
-import mechanize
+import urllib2
 import json
-import time
  
 class Cosm:
  
@@ -19,7 +18,7 @@ class Cosm:
   def __init__(self, feed_id, apikey):
     self._version = "1.0.0"
     self._feed_id = feed_id
-    self._opener = mechanize.build_opener()
+    self._opener = urllib2.build_opener()
     self._opener.addheaders = [('X-PachubeApiKey',apikey)]
     self._data = []
     self._payload = {}
@@ -34,7 +33,5 @@ class Cosm:
  
   def sendUpdate(self):
     url = self._url_base + self._feed_id + "?_method=put"
-    try:
-      self._opener.open(url,json.dumps(self._payload))
-    except mechanize.HTTPError as e:
-      print "An HTTP error occurred: %s " % e
+    self._opener.open(url,json.dumps(self._payload)).read()
+    self._data = []
